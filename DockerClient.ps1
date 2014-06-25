@@ -5,12 +5,30 @@ $test = Get-Content "DockerInstallation\testDockerClient.txt"
 
 Configuration DockerClient
 {
+
+<#
+.Synopsis
+   Generate a configuration for Docker installation on Ubuntu
+.DESCRIPTION
+   This configuration ensures that the required components for Docker
+   are installed on a specified node.
+.PARAMETER Hostname
+   Used to define the node on which the Docker components should be installed.
+.EXAMPLE
+   . .\DockerClient.ps1
+   DockerClient -Hostname mgmt01.contoso.com
+.NOTES
+   Ensure that both the OMI and DSC Linux Resource Provider source has been compiled
+   and installed on the specified node. Instructions for doing so can be found here:
+   https://github.com/MSFTOSSMgmt/WPSDSCLinux.
+#>
+
     param
     (
         $Hostname
     )
     Import-DscResource -Module nx
-    Node $hostname
+    Node $Hostname
     {
         nxScript DockerInstallation
         {
