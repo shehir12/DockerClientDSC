@@ -1,6 +1,12 @@
 # DockerClientDSC
 > DSC for Linux configuration script that checks whether or not the required Docker components have been installed on a specified Ubuntu host. This script also provides an example usage of the **nxScript** DSC resource.
 
+## Prerequisites
+
+Ensure that you have provisioned one or more hosts running Ubuntu Server. At the time of this writing, the `14.04 LTS` release is suitable.
+
+While both CentOS and Oracle Linux have also been tested with PowerShell DSC for Linux, this particular configuration has been developed specifically for Ubuntu.
+
 ## Setup
 
 Prior to executing any of the DSC configuration scripts included in this repository, ensure that your targeted node(s) has the required OMI and DSC for Linux components installed. The *DSCforLinuxSetup* folder contains an installation script, `OMIDSCInit.sh`, and an init script, `omiserverinit`, that can be used to assist with this process. The code in the setup files has been provided courtesy of PowerShell Magazine writer Ravikanth C (http://www.powershellmagazine.com/2014/05/21/installing-and-configuring-dsc-for-linux/) and Microsoft Senior Program Manager Kristopher Bash (http://blogs.technet.com/b/privatecloud/archive/2014/05/19/powershell-dsc-for-linux-step-by-step.aspx) respectively.
