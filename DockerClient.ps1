@@ -13,7 +13,7 @@ Configuration DockerClient
    This configuration ensures that the required components for Docker
    are installed on a specified node.
 .PARAMETER Hostname
-   Used to define the node on which the Docker components should be installed.
+   The node on which the Docker configuration should be enacted.
 .EXAMPLE
    . .\DockerClient.ps1
    DockerClient -Hostname mgmt01.contoso.com
