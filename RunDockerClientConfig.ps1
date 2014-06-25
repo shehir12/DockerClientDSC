@@ -13,6 +13,8 @@
    Ensure that the DockerClient.ps1 DSC configuration has been
    executed and a subsequent .mof file has been generated prior to
    running this script.
+
+   Author: Andrew Weiss | Microsoft
 #>
 
 param

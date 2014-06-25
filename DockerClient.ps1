@@ -21,6 +21,8 @@ Configuration DockerClient
    Ensure that both the OMI and DSC Linux Resource Provider source have been compiled
    and installed on the specified node. Instructions for doing so can be found here:
    https://github.com/MSFTOSSMgmt/WPSDSCLinux.
+
+   Author: Andrew Weiss | Microsoft
 #>
 
     param
