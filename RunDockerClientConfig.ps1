@@ -24,6 +24,6 @@ param
 
 $cred = Get-Credential -UserName "root" -Message "Enter password"
 $options = New-CimSessionOption -UseSsl -SkipCACheck -SkipCNCheck -SkipRevocationCheck
-$session = New-CimSession -Credential $cred -ComputerName $Hostname -Port 5986 -Authentication basic -SessionOption $option
+$session = New-CimSession -Credential $cred -ComputerName $Hostname -Port 5986 -Authentication basic -SessionOption $options
 Start-DscConfiguration -CimSession $session -Path .\DockerClient -Verbose -Wait
 $session | Remove-CimSession
