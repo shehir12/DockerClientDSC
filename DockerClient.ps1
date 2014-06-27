@@ -1,7 +1,7 @@
 ﻿$OFS = [Environment]::Newline
-$get = Get-Content "DockerInstallation\getDockerClient.txt"
-$set = Get-Content "DockerInstallation\setDockerClient.txt"
-$test = Get-Content "DockerInstallation\testDockerClient.txt"
+$get = Get-Content "DockerInstallation\getDockerClient.sh"
+$set = Get-Content "DockerInstallation\setDockerClient.sh"
+$test = Get-Content "DockerInstallation\testDockerClient.sh"
 
 Configuration DockerClient
 {
