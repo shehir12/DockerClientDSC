@@ -1,5 +1,5 @@
 # DockerClientDSC
-> DSC for Linux configuration script that checks whether or not the required Docker components have been installed on a specified Ubuntu host. This script also provides an example usage of the **nxScript** DSC resource.
+> DSC for Linux configuration script that checks whether or not the required Docker components have been installed on a specified Ubuntu host. This script also provides an example usage of the **nxScript** DSC resource. The DSC for Linux project page can be found here: https://github.com/MSFTOSSMgmt/WPSDSCLinux.
 
 ## Prerequisites
 
