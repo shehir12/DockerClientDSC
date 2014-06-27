@@ -36,3 +36,8 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 	```powershell
 	.\RunDockerClientConfig.ps1 -Hostname $hostname
 	```
+
+## Images
+
+
+## Containers
