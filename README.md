@@ -31,6 +31,12 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 	DockerClient -Hostname $hostname
 	```
 
+   A sample configuration data file has also been included and can be in conjunction with or in place of the `Hostname` parameter:
+
+	```powershell
+	DockerClient -ConfigurationData .\SampleConfigData.psd1
+	```
+
 4. Start the configuration application process on the targeted node
 
 	```powershell
