@@ -34,7 +34,7 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 	DockerClient -Hostname $hostname
 	```
 
-   A sample DSC configuration data file has also been included and can be in conjunction with or in place of the `Hostname` parameter:
+   A sample DSC configuration data file has also been included and can be modified and used in conjunction with or in place of the `Hostname` parameter:
 
 	```powershell
 	DockerClient -ConfigurationData .\SampleConfigData.psd1
