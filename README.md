@@ -8,8 +8,11 @@ Ensure that you have provisioned one or more hosts running Ubuntu Server. At the
 While both CentOS and Oracle Linux have also been tested with PowerShell DSC for Linux, this particular configuration has been developed specifically for Ubuntu.
 
 ## Setup
+> NOTE: There is an encoding bug in the DSC for Linux nxService resource as mentioned in this issue: https://github.com/MSFTOSSMgmt/WPSDSCLinux/issues/6. Until this is fixed in the WPSDSCLinux repository, a replace `nxService.py` file has been included in the *DSCforLinuxSetup* folder.
 
 Prior to executing any of the DSC configuration scripts included in this repository, ensure that your targeted node(s) has the required OMI and DSC for Linux components installed. The *DSCforLinuxSetup* folder contains an installation script, `OMIDSCInit.sh`, and an init script, `omiserverinit`, that can be used to assist with this process. The code in the setup files has been provided courtesy of PowerShell Magazine writer Ravikanth C (http://www.powershellmagazine.com/2014/05/21/installing-and-configuring-dsc-for-linux/) and Microsoft Senior Program Manager Kristopher Bash (http://blogs.technet.com/b/privatecloud/archive/2014/05/19/powershell-dsc-for-linux-step-by-step.aspx) respectively.
+
+
 
 ## Run Configuration
 
@@ -31,7 +34,7 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 	DockerClient -Hostname $hostname
 	```
 
-   A sample configuration data file has also been included and can be in conjunction with or in place of the `Hostname` parameter:
+   A sample DSC configuration data file has also been included and can be in conjunction with or in place of the `Hostname` parameter:
 
 	```powershell
 	DockerClient -ConfigurationData .\SampleConfigData.psd1
@@ -41,6 +44,12 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 
 	```powershell
 	.\RunDockerClientConfig.ps1 -Hostname $hostname
+	```
+
+   The `RunDockerClientConfig.ps1` script can also parse a DSC configuration data file and execute configurations against multiple nodes as such:
+
+	```powershell
+	.\RunDockerClientConfig.ps1 -ConfigurationData .\SampleConfigData.psd1
 	```
 
 ## Images
