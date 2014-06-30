@@ -41,26 +41,26 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 
 Using the same Run Configuration steps defined above, execute `DockerClient` with the `-Image` parameter:
 
-	```powershell
-	DockerClient -Hostname $hostname -Image node
-	```
+```powershell
+DockerClient -Hostname $hostname -Image node
+```
 
 The configuration process can be initiated as before:
 
-	```powershell
-	.\RunDockerClientConfig.ps1 -Hostname $hostname
-	```
+```powershell
+.\RunDockerClientConfig.ps1 -Hostname $hostname
+```
 
 ## Containers
 
 Using the same Run Configuration steps defined above, execute `DockerClient` with the `-Image`, `-ContainerName`, and `-Command` parameters:
 
-	```powershell
-	DockerClient -Hostname $hostname -Image node -ContainerName "helloworld" -Command 'echo "Hello World!"'
-	```
+```powershell
+DockerClient -Hostname $hostname -Image node -ContainerName "helloworld" -Command 'echo "Hello World!"'
+```
 
 The configuration process can be initiated as before:
 
-	```powershell
-	.\RunDockerClientConfig.ps1 -Hostname $hostname
-	```
+```powershell
+.\RunDockerClientConfig.ps1 -Hostname $hostname
+```
