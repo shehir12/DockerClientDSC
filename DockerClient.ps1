@@ -150,7 +150,7 @@ nxScript $imageName
             Set-Variable -Name "set$containerName" -Value ($bashString + '[[ $(docker run -d --name="' + $containerName + '"')
             if ($containerPort) {
                 $existing = (Get-Variable -Name "set$containerName").Value
-                $existing += ' -p ' + $containerPort + ':' + $containerPort
+                $existing += ' -p ' + $containerPort
                 Set-Variable -Name "set$containerName" -Value $existing
             }
         
