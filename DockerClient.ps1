@@ -103,8 +103,7 @@ Configuration DockerClient
     Import-DscResource -Module nx
     
     # Dynamically create nxScript resource blocks for Docker images
-    if ($Image) {
-        
+    if ($Image) {  
         [string[]]$imageBlocks = @()
         foreach ($dockerImage in $Image) {           
             if ($dockerImage.Contains(':')) {
@@ -132,7 +131,6 @@ nxScript $imageName
 
             $imageBlocks += $imageBlock
         }
-
     }
 
     if ($Container) {
@@ -207,9 +205,6 @@ nxScript $imageName
                 $requiredImage += $containerImage
             }
 
-            
-
-
 $containerBlock = @"
 nxScript $containerName
 {
@@ -248,16 +243,10 @@ nxService DockerService
 
 '@                
 
-        foreach ($block in $imageBlocks) {
-            $dockerConfig += $block
-        }
-
-        foreach ($block in $containerBlocks) {
-            $dockerConfig += $block
-        }
-
+        $imageBlocks | % { $dockerConfig += $_ }
+        $containerBlocks | % { $dockerConfig += $_ }            
+        
         $dockerConfig = [scriptblock]::Create($dockerConfig)
-
     } elseif ($PSBoundParameters['Image']) {
 
 $dockerConfig = @'
