@@ -244,8 +244,7 @@ nxService DockerService
 '@                
 
         $imageBlocks | % { $dockerConfig += $_ }
-        $containerBlocks | % { $dockerConfig += $_ }            
-        
+        $containerBlocks | % { $dockerConfig += $_ }
         $dockerConfig = [scriptblock]::Create($dockerConfig)
     } elseif ($PSBoundParameters['Image']) {
 
@@ -269,10 +268,7 @@ nxService DockerService
 
 '@   
 
-        foreach ($block in $imageBlocks) {
-            $dockerConfig += $block
-        }
-
+        $imageBlocks | % { $dockerConfig += $_ }
         $dockerConfig = [scriptblock]::Create($dockerConfig)
     } else {
 
