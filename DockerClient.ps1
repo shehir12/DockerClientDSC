@@ -53,6 +53,7 @@ Configuration DockerClient
    https://github.com/MSFTOSSMgmt/WPSDSCLinux.
 
    Author: Andrew Weiss | Microsoft
+           andrew.weiss@microsoft.com
 #>
 
     param
@@ -174,8 +175,6 @@ Configuration DockerClient
         }
     }
 
-    
-
     Node $AllNodes.Where{$_.Role -eq "Docker Host"}.Nodename
     {
         if ($AllNodes.Where{$_.Role -eq "Docker Host"}.Nodename -eq "$Hostname") {
@@ -189,6 +188,4 @@ Configuration DockerClient
     {
         $dockerConfig.Invoke()
     }
-
-
 }
