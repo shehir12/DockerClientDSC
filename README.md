@@ -54,10 +54,18 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 
 ## Images
 
+This is equivalent to running: `docker pull [IMAGE]`.
+
 Using the same Run Configuration steps defined above, execute `DockerClient` with the `-Image` parameter:
 
 ```powershell
 DockerClient -Hostname $hostname -Image node
+```
+
+You can also configure the host for multiple images:
+
+```powershell
+DockerClient -Hostname $hostname -Image node,mongo
 ```
 
 The configuration process can be initiated as before:
@@ -68,10 +76,26 @@ The configuration process can be initiated as before:
 
 ## Containers
 
-Using the same Run Configuration steps defined above, execute `DockerClient` with the `-Image`, `-ContainerName`, and `-Command` parameters:
+To create containers, you can use the `Container` parameter with one or more hashtable. The hashtable(s) passed to this parameter can consist of the following properties:
+
+- Name (required)
+- Image (required)
+- Port
+- Link
+- Command
+
+Each property coincides with the the same options available to the `docker run` command.
+
+For example, create a hashtable with the settings for your container:
 
 ```powershell
-DockerClient -Hostname $hostname -Image node -ContainerName "helloworld" -Command 'echo "Hello World!"'
+$webContainer = @{Name="web"; Image="anweiss/docker-platynem"; Port="80:80"}
+```
+
+Then, using the same Run Configuration steps defined above, execute `DockerClient` with the `-Image` and `-Container` parameters:
+
+```powershell
+DockerClient -Hostname $hostname -Image node -Container $webContainer
 ```
 
 The configuration process can be initiated as before:
