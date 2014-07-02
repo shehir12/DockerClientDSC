@@ -65,6 +65,10 @@ Configuration DockerClient
         [Parameter(Position=3)]
         [string]$ContainerName,
         [Parameter(Position=4)]
+        [int]$Port,
+        [Parameter(Position=5)]
+        [string]$LinkedContainer,
+        [Parameter(Position=6)]
         [string]$Command
     )
 
@@ -85,16 +89,47 @@ Configuration DockerClient
 
     $OFS = [Environment]::Newline
     
-    $scripts = Get-ChildItem -Recurse -File -Path "scripts" | % { $_.FullName }
-    $scripts | % {
+    $installationScripts = Get-ChildItem -Recurse -File -Path "scripts\installation" | % { $_.FullName }
+    $installationScripts | % {
         $fileName = [System.IO.Path]::GetFileNameWithoutExtension($_)
         Set-Variable -Name $fileName -Value (Get-Content $_)
-        $content = (Get-Variable -Name $fileName).Value.Replace('[image]', $Image).Replace('[containername]', $ContainerName).Replace('[command]', $Command)
-        Set-Variable -Name $filename -Value $content
     }
-    
-    Import-DscResource -Module nx
 
+    $bashString = "#!/bin/bash`r`n"
+
+    if ($Image) {
+        if ($Image.Contains(':')) {
+            $getDockerImage = $bashString + '[[ $(docker images | grep "' + $Image + '" | awk ''{print $2}'') -eq "' + $Image.Split(':')[1] + '" ]] && exit 0 || exit 1'
+            $testDockerImage = $bashString + '[[ $(docker images | grep "' + $Image + '" | awk ''{print $2}'') -eq "' + $Image.Split(':')[1] + '" ]] && exit 0 || exit 1'
+        } else {
+            $getDockerImage = $bashString + '[[ $docker images | grep "' + $Image + '") -gt 0 ]] && exit 0 || exit 1'
+            $testDockerImage = $bashString + '[[ $(docker images | grep -c "' + $Image + '") -gt 0 ]] && exit 0 || exit 1'
+        }
+        $setDockerImage = $bashString + 'docker pull ' + $Image + '; exit 0'
+    }
+
+    # Dynamically build Docker container command
+    if ($ContainerName) {
+        $getDockerContainer = $bashString + '[[ $(docker ps -a | grep -c "' + $ContainerName + '") -eq 1 ]] && exit 0 || exit 1'
+        $testDockerContainer = $bashString + '[[ $(docker ps -a | grep -c "' + $ContainerName + '") -eq 1 ]] && exit 0 || exit 1'
+
+        $setDockerContainer = $bashString + '[[ $(docker run -d --name="' + $ContainerName + '"'
+        if ($Port) {
+            $setDockerContainer += ' -p ' + $Port + ':' + $Port
+        }
+        
+        if ($LinkedContainer) {
+            $setDockerContainer += ' --link ' + $LinkedContainer + ':' + $LinkedContainer
+        }
+        
+        if ($Command) {
+            $setDockerContainer += ' ' + $Command
+        }
+        $setDockerContainer += ' ' + $Image + ') ]] && exit 0 || exit 1'
+    }
+
+    Import-DscResource -Module nx
+   
     if ($PSBoundParameters['ContainerName']) {
         [scriptblock]$dockerConfig = {
             nxScript DockerInstallation
