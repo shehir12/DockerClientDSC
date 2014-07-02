@@ -19,14 +19,20 @@ Configuration DockerClient
    ConfigurationData parameter rather than the Hostname parameter if this configuration
    should be enacted upon more than one node.
 .PARAMETER Image
-   Docker image to pull.
-.PARAMETER ContainerName
-   Docker container to create. This parameter requires a valid Image parameter. Since many
-   containers might contain the same commands it is important to define ContainerName
-   with a descriptive name.
-.PARAMETER Command
-   Command to run in specified ContainerName. This parameter requires both valid
-   Image and ContainerName parameters. 
+   Docker image(s) to pull.
+.PARAMETER Container
+   Docker container(s) to run. This parameter requires one or more hashtables with the
+   desired options for the container. Valid properties for the hashtable are:
+
+      - Name
+      - Image
+      - Port
+      - Link
+      - Command
+
+   When using this paramter, your hashtable must define at least the Name and Image properties.
+   Use of this parameter does not require the use of the Image parameter unless you wish to configure
+   a combination of containers and images
 .EXAMPLE
    . .\DockerClient.ps1
    DockerClient -Hostname mgmt01.contoso.com
@@ -42,11 +48,11 @@ Configuration DockerClient
 
 
    . .\DockerClient.ps1
-   DockerClient -Hostname mgmt01.contoso.com -Image node -ContainerName "Hello World" -Command 'echo "Hello World"'
+   DockerClient -Hostname mgmt01.contoso.com -Image node -Container @{Name="Hello World";Port=8080;Command='echo "Hello world"'}
 
    Generates a .mof for configuring Docker components on mgmt01.contoso.com. The
-   "node" image will be pulled from the Docker Hub repository. A container by the name
-   "Hello World" with the command 'echo "Hello World"' will also be configured.
+   "node" image will be pulled from the Docker Hub repository if it doesn't already exist.
+   A container by the name "Hello World" with the command 'echo "Hello World"' will also be created.
 .NOTES
    Ensure that both the OMI and DSC Linux Resource Provider source have been compiled
    and installed on the specified node. Instructions for doing so can be found here:
@@ -61,15 +67,9 @@ Configuration DockerClient
         [Parameter(Position=1)]
         [string]$Hostname,
         [Parameter(Position=2)]
-        [string]$Image,
+        [string[]]$Image,
         [Parameter(Position=3)]
-        [string]$ContainerName,
-        [Parameter(Position=4)]
-        [int]$Port,
-        [Parameter(Position=5)]
-        [string]$LinkedContainer,
-        [Parameter(Position=6)]
-        [string]$Command
+        [hashtable[]]$Container
     )
 
     if (!$PSBoundParameters['Hostname']) {
@@ -77,15 +77,18 @@ Configuration DockerClient
             throw "Hostname and/or ConfigurationData must be specified"
         }
     }
+    
+    # Force user to define name for container so it can be referenced later
+    $Container | % {
+        if (!$_['Name']) {
+            throw "Name property must be defined in the Container hashtable parameter"
+        }
 
-    if (($PSBoundParameters['ContainerName'] -or $PSBoundParameters['Command']) -and (!$PSBoundParameters['Image'])) {
-        throw "An Image must be specified"
+        if (!$_['Image']) {
+            throw "Image property must be defined in the Container hashtable parameter"
+        }
     }
 
-    # Forces user to name containers rather than randomly assigning names
-    if (($PSBoundParameters['Command']) -and (!$PSBoundParameters['ContainerName'])) {
-        throw "A container in which to run the command must be specified"
-    }
 
     $OFS = [Environment]::Newline
     
@@ -97,117 +100,212 @@ Configuration DockerClient
 
     $bashString = "#!/bin/bash`r`n"
 
-    if ($Image) {
-        if ($Image.Contains(':')) {
-            $getDockerImage = $bashString + '[[ $(docker images | grep "' + $Image + '" | awk ''{print $2}'') -eq "' + $Image.Split(':')[1] + '" ]] && exit 0 || exit 1'
-            $testDockerImage = $bashString + '[[ $(docker images | grep "' + $Image + '" | awk ''{print $2}'') -eq "' + $Image.Split(':')[1] + '" ]] && exit 0 || exit 1'
-        } else {
-            $getDockerImage = $bashString + '[[ $docker images | grep "' + $Image + '") -gt 0 ]] && exit 0 || exit 1'
-            $testDockerImage = $bashString + '[[ $(docker images | grep -c "' + $Image + '") -gt 0 ]] && exit 0 || exit 1'
-        }
-        $setDockerImage = $bashString + 'docker pull ' + $Image + '; exit 0'
-    }
-
-    # Dynamically build Docker container command
-    if ($ContainerName) {
-        $getDockerContainer = $bashString + '[[ $(docker ps -a | grep -c "' + $ContainerName + '") -eq 1 ]] && exit 0 || exit 1'
-        $testDockerContainer = $bashString + '[[ $(docker ps -a | grep -c "' + $ContainerName + '") -eq 1 ]] && exit 0 || exit 1'
-
-        $setDockerContainer = $bashString + '[[ $(docker run -d --name="' + $ContainerName + '"'
-        if ($Port) {
-            $setDockerContainer += ' -p ' + $Port + ':' + $Port
-        }
-        
-        if ($LinkedContainer) {
-            $setDockerContainer += ' --link ' + $LinkedContainer + ':' + $LinkedContainer
-        }
-        
-        if ($Command) {
-            $setDockerContainer += ' ' + $Command
-        }
-        $setDockerContainer += ' ' + $Image + ') ]] && exit 0 || exit 1'
-    }
-
     Import-DscResource -Module nx
-   
-    if ($PSBoundParameters['ContainerName']) {
-        [scriptblock]$dockerConfig = {
-            nxScript DockerInstallation
-            {
-                GetScript = "$getDockerClient"
-                SetScript = "$setDockerClient"
-                TestScript = "$testDockerClient"
+    
+    # Dynamically create nxScript resource blocks for Docker images
+    if ($Image) {
+        
+        [string[]]$imageBlocks = @()
+        foreach ($dockerImage in $Image) {           
+            if ($dockerImage.Contains(':')) {
+                Set-Variable -Name "get$dockerImage" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage + '" | awk ''{print $2}'') -eq "' + $dockerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
+                Set-Variable -Name "test$dockerImage" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage + '" | awk ''{print $2}'') -eq "' + $dockerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
+            } else {
+                Set-Variable -Name "get$dockerImage" -Value ($bashString + '[[ $docker images | grep "' + $dockerImage + '") -gt 0 ]] && exit 0 || exit 1')
+                Set-Variable -Name "test$dockerImage" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 0 || exit 1')
             }
+            Set-Variable -Name "set$dockerImage" -Value ($bashString + 'docker pull ' + $dockerImage + '; exit 0')
+            
+            $imageName = $dockerImage.Replace(':', "")
 
-            nxService DockerService
-            {
-                Name = "docker.io"
-                Controller = "init"
-                Enabled = $true
-                State = "Running"
-                DependsOn = "[nxScript]DockerInstallation"
-            }
+$imageBlock = @"
+nxScript $imageName
+{
+    GetScript = `$get$dockerImage
+    SetScript = `$set$dockerImage
+    TestScript = `$test$dockerImage
+    DependsOn = @("[nxService]DockerService", "[nxScript]DockerInstallation")
+}
 
-            nxScript DockerImage
-            {
-                GetScript = "$getDockerImage"
-                SetScript = "$setDockerImage"
-                TestScript = "$testDockerImage"
-                DependsOn = @("[nxService]DockerService", "[nxScript]DockerInstallation")
-            }
 
-            nxScript DockerContainer
-            {
-                GetScript = "$getDockerContainer"
-                SetScript = "$setDockerContainer"
-                TestScript = "$testDockerContainer"
-                DependsOn = "[nxScript]DockerImage"
-            }
+"@
+
+            $imageBlocks += $imageBlock
         }
+
+    }
+
+    if ($Container) {
+        [string[]]$containerBlocks = @()
+
+        $requiredImage = @()
+        foreach ($dockerContainer in $Container) {
+            $containerName = $dockerContainer['Name']
+            $containerImage = $dockerContainer['Image']
+            $containerPort = $dockerContainer['Port']
+            $containerLink = $dockerContainer['Link']
+            $containerCommand = $dockerContainer['Command']
+
+            Set-Variable -Name "get$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -eq 1 ]] && exit 0 || exit 1')
+            Set-Variable -Name "test$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -eq 1 ]] && exit 0 || exit 1')
+
+            Set-Variable -Name "set$containerName" -Value ($bashString + '[[ $(docker run -d --name="' + $containerName + '"')
+            if ($containerPort) {
+                $existing = (Get-Variable -Name "set$containerName").Value
+                $existing += ' -p ' + $containerPort + ':' + $containerPort
+                Set-Variable -Name "set$containerName" -Value $existing
+            }
+        
+            if ($containerLink) {
+                $existing = (Get-Variable -Name "set$containerName").Value
+                $existing += ' --link ' + $containerLink + ':' + $containerLink
+                Set-Variable -Name "set$containerName" -Value $existing
+            }
+      
+            $existing = (Get-Variable -Name "set$containerName").Value
+            $existing += ' ' + $containerImage
+            Set-Variable -Name "set$containerName" -Value $existing
+
+            if ($containerCommand) {
+                $existing = (Get-Variable -Name "set$container").Value
+                $existing += ' ' + $containerCommand
+                Set-Variable -Name "set$containerName" -Value $existing
+            }
+
+            $existing = (Get-Variable -Name "set$containerName").Value
+            $existing += ' ) ]] && exit 0 || exit 1'
+            Set-Variable -Name "set$containerName" -Value $existing
+
+            if ($requiredImage -notcontains $containerImage) {
+                if ($Image -notcontains $containerImage) {
+                    if ($containerImage.Contains(':')) {
+                        Set-Variable -Name "get$containerImage" -Value ($bashString + '[[ $(docker images | grep "' + $containerImage + '" | awk ''{print $2}'') -eq "' + $containerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
+                        Set-Variable -Name "test$containerImage" -Value ($bashString + '[[ $(docker images | grep "' + $containerImage + '" | awk ''{print $2}'') -eq "' + $containerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
+                    } else {
+                        Set-Variable -Name "get$containerImage" -Value ($bashString + '[[ $docker images | grep "' + $containerImage + '") -gt 0 ]] && exit 0 || exit 1')
+                        Set-Variable -Name "test$containerImage" -Value ($bashString + '[[ $(docker images | grep -c "' + $containerImage + '") -gt 0 ]] && exit 0 || exit 1')
+                    }
+                    Set-Variable -Name "set$containerImage" -Value ($bashString + 'docker pull ' + $containerImage + '; exit 0')
+
+                    $imageName = $containerImage.Replace(':', "")
+
+$imageBlock = @"
+nxScript $imageName
+{
+    GetScript = `$get$imageName
+    SetScript = `$set$imageName
+    TestScript = `$test$imageName
+    DependsOn = @("[nxService]DockerService", "[nxScript]DockerInstallation")
+}
+
+
+"@
+
+                    $imageBlocks += $imageBlock
+                }
+
+                $requiredImage += $containerImage
+            }
+
+            
+
+
+$containerBlock = @"
+nxScript $containerName
+{
+    GetScript = `$get$containerName
+    SetScript = `$set$containerName
+    TestScript = `$test$containerName
+    DependsOn = `"[nxScript]$containerImage`"
+}
+
+
+"@
+
+            $containerBlocks += $containerBlock
+        }
+    }
+       
+    if ($PSBoundParameters['Container']) {
+        
+$dockerConfig = @'
+nxScript DockerInstallation
+{
+    GetScript = "$getDockerClient"
+    SetScript = "$setDockerClient"
+    TestScript = "$testDockerClient"
+}
+
+nxService DockerService
+{
+    Name = "docker.io"
+    Controller = "init"
+    Enabled = $true
+    State = "Running"
+    DependsOn = "[nxScript]DockerInstallation"
+}
+
+
+'@                
+
+        foreach ($block in $imageBlocks) {
+            $dockerConfig += $block
+        }
+
+        foreach ($block in $containerBlocks) {
+            $dockerConfig += $block
+        }
+
+        $dockerConfig = [scriptblock]::Create($dockerConfig)
+
     } elseif ($PSBoundParameters['Image']) {
-        [scriptblock]$dockerConfig = {
-            nxScript DockerInstallation
-            {
-                GetScript = "$getDockerClient"
-                SetScript = "$setDockerClient"
-                TestScript = "$testDockerClient"
-            }
 
-            nxService DockerService
-            {
-                Name = "docker.io"
-                Controller = "init"
-                Enabled = $true
-                State = "Running"
-                DependsOn = "[nxScript]DockerInstallation"
-            }
+$dockerConfig = @'
+nxScript DockerInstallation
+{
+    GetScript = "$getDockerClient"
+    SetScript = "$setDockerClient"
+    TestScript = "$testDockerClient"
+}
 
-            nxScript DockerImage
-            {
-                GetScript = "$getDockerImage"
-                SetScript = "$setDockerImage"
-                TestScript = "$testDockerImage"
-                DependsOn = @("[nxService]DockerService", "[nxScript]DockerInstallation")
-            }
+nxService DockerService
+{
+    Name = "docker.io"
+    Controller = "init"
+    Enabled = $true
+    State = "Running"
+    DependsOn = "[nxScript]DockerInstallation"
+}
+
+
+'@   
+
+        foreach ($block in $imageBlocks) {
+            $dockerConfig += $block
         }
+
+        $dockerConfig = [scriptblock]::Create($dockerConfig)
     } else {
-        [scriptblock]$dockerConfig = {
-            nxScript DockerInstallation
-            {
-                GetScript = "$getDockerClient"
-                SetScript = "$setDockerClient"
-                TestScript = "$testDockerClient"
-            }
 
-            nxService DockerService
-            {
-                Name = "docker.io"
-                Controller = "init"
-                Enabled = $true
-                State = "Running"
-                DependsOn = "[nxScript]DockerInstallation"
-            }
-        }
+$dockerConfig = @'
+nxScript DockerInstallation
+{
+    GetScript = "$getDockerClient"
+    SetScript = "$setDockerClient"
+    TestScript = "$testDockerClient"
+}
+
+nxService DockerService
+{
+    Name = "docker.io"
+    Controller = "init"
+    Enabled = $true
+    State = "Running"
+    DependsOn = "[nxScript]DockerInstallation"
+}
+'@
+
+        $dockerConfig = [scriptblock]::Create($dockerConfig)
     }
 
     Node $AllNodes.Where{$_.Role -eq "Docker Host"}.Nodename
@@ -216,7 +314,7 @@ Configuration DockerClient
             throw "Duplicate node detected in configuration data and Hostname parameter"
         }
 
-        $DockerConfig.Invoke()
+        $dockerConfig.Invoke()
     }
 
     Node $Hostname
