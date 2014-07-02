@@ -77,6 +77,11 @@ Configuration DockerClient
         throw "An Image must be specified"
     }
 
+    # Forces user to name containers rather than randomly assigning names
+    if (($PSBoundParameters['Command']) -and (!$PSBoundParameters['ContainerName'])) {
+        throw "A container in which to run the command must be specified"
+    }
+
     $OFS = [Environment]::Newline
     
     $scripts = Get-ChildItem -Recurse -File -Path "scripts" | % { $_.FullName }
@@ -89,39 +94,87 @@ Configuration DockerClient
     
     Import-DscResource -Module nx
 
-    [scriptblock]$dockerConfig = {
-        nxScript DockerInstallation
-        {
-            GetScript = "$getDockerClient"
-            SetScript = "$setDockerClient"
-            TestScript = "$testDockerClient"
-        }
+    if ($PSBoundParameters['ContainerName']) {
+        [scriptblock]$dockerConfig = {
+            nxScript DockerInstallation
+            {
+                GetScript = "$getDockerClient"
+                SetScript = "$setDockerClient"
+                TestScript = "$testDockerClient"
+            }
 
-        nxService DockerService
-        {
-            Name = "docker.io"
-            Controller = "init"
-            Enabled = $true
-            State = "Running"
-            DependsOn = "[nxScript]DockerInstallation"
-        }
+            nxService DockerService
+            {
+                Name = "docker.io"
+                Controller = "init"
+                Enabled = $true
+                State = "Running"
+                DependsOn = "[nxScript]DockerInstallation"
+            }
 
-        nxScript DockerImage
-        {
-            GetScript = "$getDockerImage"
-            SetScript = "$setDockerImage"
-            TestScript = "$testDockerImage"
-            DependsOn = @("[nxService]DockerService", "[nxScript]DockerInstallation")
-        }
+            nxScript DockerImage
+            {
+                GetScript = "$getDockerImage"
+                SetScript = "$setDockerImage"
+                TestScript = "$testDockerImage"
+                DependsOn = @("[nxService]DockerService", "[nxScript]DockerInstallation")
+            }
 
-        nxScript DockerContainer
-        {
-            GetScript = "$getDockerContainer"
-            SetScript = "$setDockerContainer"
-            TestScript = "$testDockerContainer"
-            DependsOn = "[nxScript]DockerImage"
+            nxScript DockerContainer
+            {
+                GetScript = "$getDockerContainer"
+                SetScript = "$setDockerContainer"
+                TestScript = "$testDockerContainer"
+                DependsOn = "[nxScript]DockerImage"
+            }
+        }
+    } elseif ($PSBoundParameters['Image']) {
+        [scriptblock]$dockerConfig = {
+            nxScript DockerInstallation
+            {
+                GetScript = "$getDockerClient"
+                SetScript = "$setDockerClient"
+                TestScript = "$testDockerClient"
+            }
+
+            nxService DockerService
+            {
+                Name = "docker.io"
+                Controller = "init"
+                Enabled = $true
+                State = "Running"
+                DependsOn = "[nxScript]DockerInstallation"
+            }
+
+            nxScript DockerImage
+            {
+                GetScript = "$getDockerImage"
+                SetScript = "$setDockerImage"
+                TestScript = "$testDockerImage"
+                DependsOn = @("[nxService]DockerService", "[nxScript]DockerInstallation")
+            }
+        }
+    } else {
+        [scriptblock]$dockerConfig = {
+            nxScript DockerInstallation
+            {
+                GetScript = "$getDockerClient"
+                SetScript = "$setDockerClient"
+                TestScript = "$testDockerClient"
+            }
+
+            nxService DockerService
+            {
+                Name = "docker.io"
+                Controller = "init"
+                Enabled = $true
+                State = "Running"
+                DependsOn = "[nxScript]DockerInstallation"
+            }
         }
     }
+
+    
 
     Node $AllNodes.Where{$_.Role -eq "Docker Host"}.Nodename
     {
