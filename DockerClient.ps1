@@ -79,13 +79,17 @@ Configuration DockerClient
     }
     
     # Force user to define name for container so it can be referenced later
-    $Container | % {
-        if (!$_['Name']) {
-            throw "Name property must be defined in the Container hashtable parameter"
-        }
+    if ($Container) {
+        $Container | % {
+            if (!$_['Name']) {
+                throw "Name property must be defined in the Container hashtable parameter"
+            }
 
-        if (!$_['Image']) {
-            throw "Image property must be defined in the Container hashtable parameter"
+            if (!$_['Image']) {
+                if (!$_['Remove']) {
+                    throw "Image property must be defined in the Container hashtable parameter"
+                }
+            }
         }
     }
 
@@ -108,10 +112,10 @@ Configuration DockerClient
         foreach ($dockerImage in $Image) {           
             $imageVarName = $dockerImage.Replace('-', "").Replace(':', "").Replace('/', "")
             if ($dockerImage.Contains(':')) {
-                Set-Variable -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{print $2}'') -eq "' + $dockerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
-                Set-Variable -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{print $2}'') -eq "' + $dockerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
+                Set-Variable -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
+                Set-Variable -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
             } else {
-                Set-Variable -Name "get$imageVarName" -Value ($bashString + '[[ $docker images | grep "' + $dockerImage + '") -gt 0 ]] && exit 0 || exit 1')
+                Set-Variable -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 0 || exit 1')
                 Set-Variable -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 0 || exit 1')
             }
             Set-Variable -Name "set$imageVarName" -Value ($bashString + 'docker pull ' + $dockerImage + '; exit 0')
@@ -143,58 +147,64 @@ nxScript $imageVarName
             $containerEnv = $dockerContainer['Env']
             $containerLink = $dockerContainer['Link']
             $containerCommand = $dockerContainer['Command']
+            $isRemovable = $dockerContainer['Remove']
 
-            Set-Variable -Name "get$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 0 || exit 1')
-            Set-Variable -Name "test$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 0 || exit 1')
+            if ($isRemovable) {
+                Set-Variable -Name "get$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 1 || exit 0')
+                Set-Variable -Name "test$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 1 || exit 0')
+                Set-Variable -Name "set$containerName" -Value ($bashString + 'docker rm -v -f ' + $containerName)
+            } else {
+                Set-Variable -Name "get$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 0 || exit 1')
+                Set-Variable -Name "test$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 0 || exit 1')
 
-            Set-Variable -Name "set$containerName" -Value ($bashString + '[[ $(docker run -d --name="' + $containerName + '"')
-            if ($containerPort) {
-                $existing = (Get-Variable -Name "set$containerName").Value
-                $existing += ' -p ' + $containerPort
-                Set-Variable -Name "set$containerName" -Value $existing
-            }
-
-            if ($containerEnv) {
-                foreach ($env in $containerEnv) {
+                Set-Variable -Name "set$containerName" -Value ($bashString + '[[ $(docker run -d --name="' + $containerName + '"')
+                if ($containerPort) {
                     $existing = (Get-Variable -Name "set$containerName").Value
-                    $existing += " -e `"$env`""
+                    $existing += ' -p ' + $containerPort
                     Set-Variable -Name "set$containerName" -Value $existing
                 }
-            }
-        
-            if ($containerLink) {
-                $existing = (Get-Variable -Name "set$containerName").Value
-                $existing += ' --link ' + $containerLink + ':' + $containerLink
-                Set-Variable -Name "set$containerName" -Value $existing
-            }
-      
-            $existing = (Get-Variable -Name "set$containerName").Value
-            $existing += ' ' + $containerImage
-            Set-Variable -Name "set$containerName" -Value $existing
 
-            if ($containerCommand) {
-                $existing = (Get-Variable -Name "set$container").Value
-                $existing += ' ' + $containerCommand
-                Set-Variable -Name "set$containerName" -Value $existing
-            }
-
-            $existing = (Get-Variable -Name "set$containerName").Value
-            $existing += ' ) ]] && exit 0 || exit 1'
-            Set-Variable -Name "set$containerName" -Value $existing
-
-            $imageVarName = $containerImage.Replace('-', "").Replace(':', "").Replace('/', "")
-
-            if ($requiredImage -notcontains $containerImage) {
-                if ($Image -notcontains $containerImage) {
-                    $imageVarName = $containerImage.Replace('-', "").Replace(':', "").Replace('/', "")
-                    if ($containerImage.Contains(':')) {
-                        Set-Variable -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $containerImage.Split(':')[0] + '" | awk ''{print $2}'') -eq "' + $containerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
-                        Set-Variable -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $containerImage.Split(':')[0] + '" | awk ''{print $2}'') -eq "' + $containerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
-                    } else {
-                        Set-Variable -Name "get$imageVarName" -Value ($bashString + '[[ $docker images | grep "' + $containerImage + '") -gt 0 ]] && exit 0 || exit 1')
-                        Set-Variable -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $containerImage + '") -gt 0 ]] && exit 0 || exit 1')
+                if ($containerEnv) {
+                    foreach ($env in $containerEnv) {
+                        $existing = (Get-Variable -Name "set$containerName").Value
+                        $existing += " -e `"$env`""
+                        Set-Variable -Name "set$containerName" -Value $existing
                     }
-                    Set-Variable -Name "set$imageVarName" -Value ($bashString + 'docker pull ' + $containerImage + '; exit 0')
+                }
+        
+                if ($containerLink) {
+                    $existing = (Get-Variable -Name "set$containerName").Value
+                    $existing += ' --link ' + $containerLink + ':' + $containerLink
+                    Set-Variable -Name "set$containerName" -Value $existing
+                }
+      
+                $existing = (Get-Variable -Name "set$containerName").Value
+                $existing += ' ' + $containerImage
+                Set-Variable -Name "set$containerName" -Value $existing
+
+                if ($containerCommand) {
+                    $existing = (Get-Variable -Name "set$container").Value
+                    $existing += ' ' + $containerCommand
+                    Set-Variable -Name "set$containerName" -Value $existing
+                }
+
+                $existing = (Get-Variable -Name "set$containerName").Value
+                $existing += ' ) ]] && exit 0 || exit 1'
+                Set-Variable -Name "set$containerName" -Value $existing
+
+                $imageVarName = $containerImage.Replace('-', "").Replace(':', "").Replace('/', "")
+
+                if ($requiredImage -notcontains $containerImage) {
+                    if ($Image -notcontains $containerImage) {
+                        $imageVarName = $containerImage.Replace('-', "").Replace(':', "").Replace('/', "")
+                        if ($containerImage.Contains(':')) {
+                            Set-Variable -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $containerImage.Split(':')[0] + '" | awk ''{print $2}'') == "' + $containerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
+                            Set-Variable -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $containerImage.Split(':')[0] + '" | awk ''{print $2}'') == "' + $containerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
+                        } else {
+                            Set-Variable -Name "get$imageVarName" -Value ($bashString + '[[ $docker images | grep "' + $containerImage + '") -gt 0 ]] && exit 0 || exit 1')
+                            Set-Variable -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $containerImage + '") -gt 0 ]] && exit 0 || exit 1')
+                        }
+                        Set-Variable -Name "set$imageVarName" -Value ($bashString + 'docker pull ' + $containerImage + '; exit 0')
 
 $imageBlock = @"
 nxScript $imageVarName
@@ -208,10 +218,11 @@ nxScript $imageVarName
 
 "@
 
-                    $imageBlocks += $imageBlock
-                }
+                        $imageBlocks += $imageBlock
+                    }
 
-                $requiredImage += $containerImage
+                    $requiredImage += $containerImage
+                }
             }
 
 $containerBlock = @"
