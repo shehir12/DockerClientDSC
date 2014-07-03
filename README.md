@@ -15,6 +15,7 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 
 
 ## Run Configuration
+> NOTE: An issue may occur when new Docker images are pulled from the Docker Hub while applying a DSC configuration that causes the CIM session to become disconnected. This issue is being investigated. If this occurs, you may have to manually pull the Docker image using `docker pull [IMAGE]` and use the `-Force` switch in future executions of the `Start-DscConfiguration` cmdlet to delete any pending configurations.
 
 1. Create a variable to hold the hostname of the targeted node
 
@@ -43,10 +44,18 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 4. Start the configuration application process on the targeted node
 
 	```powershell
-	.\RunDockerClientConfig.ps1 -Hostname $hostname
+	$cred = Get-Credential -UserName "root"
+	$options = New-CimSessionOption -UseSsl -SkipCACheck -SkipCNCheck -SkipRevocationCheck
+	$session = New-CimSession -Credential $cred -ComputerName $hostname -Path .\DockerClient -Verbose -Wait
 	```
 
-   The `RunDockerClientConfig.ps1` script can also parse a DSC configuration data file and execute configurations against multiple nodes as such:
+   You can also use the `RunDockerClientConfig.ps1` script to execute the commands above as follows:
+
+    ```powershell
+	.\RunDockerClientConfig.ps1 -Hostname $hostname
+    ```
+
+   If you used a DSC configuration data file, the `RunDockerClientConfig.ps1` script can also parse this file and execute configurations against multiple nodes as such:
 
 	```powershell
 	.\RunDockerClientConfig.ps1 -ConfigurationData .\SampleConfigData.psd1
@@ -79,10 +88,11 @@ The configuration process can be initiated as before:
 To create containers, you can use the `Container` parameter with one or more hashtable. The hashtable(s) passed to this parameter can consist of the following properties:
 
 - Name (required)
-- Image (required)
+- Image (required unless Remove property is set to `$true`)
 - Port
 - Link
 - Command
+- Remove
 
 Each property coincides with the the same options available to the `docker run` command.
 
@@ -96,10 +106,13 @@ Then, using the same Run Configuration steps defined above, execute `DockerClien
 
 ```powershell
 DockerClient -Hostname $hostname -Image node -Container $webContainer
+.\RunDockerClientConfig.ps1 -Hostname $hostname
 ```
 
-The configuration process can be initiated as before:
+Existing containers can also be removed as follows:
 
 ```powershell
+$containerToRemove = @{Name="web"; Remove=$true}
+DockerClient -Hostname $hostname -Container $containerToRemove
 .\RunDockerClientConfig.ps1 -Hostname $hostname
 ```

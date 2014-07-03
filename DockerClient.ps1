@@ -24,29 +24,29 @@ Configuration DockerClient
    Docker container(s) to run. This parameter requires one or more hashtables with the
    desired options for the container. Valid properties for the hashtable are:
 
-      - Name
-      - Image
-      - Port
-      - Link
-      - Command
+      - Name -> Name to assign container
+      - Image -> Image container will use
+      - Port -> Port mapping
+      - Link -> Name of container to link to
+      - Command -> Command to execute in container
+      - Remove -> Boolean to indicate whether or not container should be removed
 
-   When using this paramter, your hashtable must define at least the Name and Image properties.
-   Use of this parameter does not require the use of the Image parameter unless you wish to configure
-   a combination of containers and images
+   When using this paramter, your hashtable must define at least the Name and Image properties, unless
+   the Remove property is chosen in which case on the Name property needs to be defined. Use of this
+   parameter does not require the use of the Image parameter unless you wish to configure a combination
+   of containers and images.
 .EXAMPLE
    . .\DockerClient.ps1
    DockerClient -Hostname mgmt01.contoso.com
 
    Generates a .mof for configuring Docker components on mgmt01.contoso.com.
-
-
+.EXAMPLE
    . .\DockerClient.ps1
    DockerClient -Hostname mgmt01.contoso.com -Image node
 
    Generates a .mof for configuring Docker components on mgmt01.contoso.com. The
    "node" image will also pulled from the Docker Hub repository.
-
-
+.EXAMPLE
    . .\DockerClient.ps1
    DockerClient -Hostname mgmt01.contoso.com -Image node -Container @{Name="Hello World";Port=8080;Command='echo "Hello world"'}
 
