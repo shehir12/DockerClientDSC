@@ -14,8 +14,10 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 
 
 
-## Run Configuration
+## Installation Run Configuration
 > NOTE: An issue may occur when new Docker images are pulled from the Docker Hub while applying a DSC configuration that causes the CIM session to become disconnected. This issue is being investigated. If this occurs, you may have to manually pull the Docker image using `docker pull [IMAGE]` and use the `-Force` switch in future executions of the `Start-DscConfiguration` cmdlet to delete any pending configurations.
+
+Every `DockerClient` DSC configuration asserts that Docker is installed and configured and that the Docker service is running. The steps below provide a walkthrough for using the `DockerClient` DSC configuration to ensure that Docker is installed on a target node:
 
 1. Create a variable to hold the hostname of the targeted node
 
@@ -46,10 +48,11 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 	```powershell
 	$cred = Get-Credential -UserName "root"
 	$options = New-CimSessionOption -UseSsl -SkipCACheck -SkipCNCheck -SkipRevocationCheck
-	$session = New-CimSession -Credential $cred -ComputerName $hostname -Path .\DockerClient -Verbose -Wait
+	$session = New-CimSession -Credential $cred -ComputerName $hostname -Port 5986 -Authentication basic -SessionOption $options
+	Start-DscConfiguration -CimSession $session -Path .\DockerClient -Verbose -Wait
 	```
 
-   You can also use the `RunDockerClientConfig.ps1` script to execute the commands above as follows:
+   You can also use the `RunDockerClientConfig.ps1` helper script to apply your generated configurations which executes the same CIM session commands above and starts your configuration with `Start-DscConfiguration -Force`:
 
     ```powershell
 	.\RunDockerClientConfig.ps1 -Hostname $hostname
@@ -63,29 +66,39 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 
 ## Images
 
-This is equivalent to running: `docker pull [IMAGE]`.
+Images can be pulled or removed from you host. This is equivalent to running: `docker pull [IMAGE]` or `docker rmi -f [IMAGE]`.
 
-Using the same Run Configuration steps defined above, execute `DockerClient` with the `-Image` parameter:
+Using the same Run Configuration steps defined above, execute `DockerClient` with the `-Image` parameter to configure an image to pulled:
 
 ```powershell
-DockerClient -Hostname $hostname -Image node
+DockerClient -Hostname $hostname -Image "node"
+.\RunDockerClientConfig.ps1 -Hostname $hostname
 ```
 
-You can also configure the host for multiple images:
+You can also configure the host to pull multiple images:
 
 ```powershell
-DockerClient -Hostname $hostname -Image node,mongo
+DockerClient -Hostname $hostname -Image "node","mongo"
+.\RunDockerClientConfig.ps1 -Hostname $hostname
 ```
 
-The configuration process can be initiated as before:
+To remove images, use a hashtable as follows:
 
 ```powershell
+DockerClient -Hostname $hostname -Image @{Name="node"; Remove=$true}
+.\RunDockerClientConfig.ps1 -Hostname $hostname
+```
+
+You can combine images for pull and removal by using an array. The example below will pull the node image but remove any existing mongo images:
+
+```powershell
+DockerClient -Hostname $hostname -Image @("node", @{Name="mongo"; Remove=$true})
 .\RunDockerClientConfig.ps1 -Hostname $hostname
 ```
 
 ## Containers
 
-To create containers, you can use the `Container` parameter with one or more hashtable. The hashtable(s) passed to this parameter can consist of the following properties:
+To create or remove containers, you can use the `Container` parameter with one or more hashtable. The hashtable(s) passed to this parameter can consist of the following properties:
 
 - Name (required)
 - Image (required unless Remove property is set to `$true`)
