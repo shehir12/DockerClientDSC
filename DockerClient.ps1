@@ -4,7 +4,6 @@ if (Test-Path "$PSScriptRoot\DockerClient") {
     Remove-Item -Recurse "$PSScriptRoot\DockerClient"
 }
 
-
 Configuration DockerClient
 {
 
@@ -77,7 +76,7 @@ Configuration DockerClient
         [Parameter(Position=3)]
         [hashtable[]]$Container
     )
-
+       
     if (!$PSBoundParameters['Hostname']) {
         if (!$PSBoundParameters['ConfigurationData']) {
             throw "Hostname and/or ConfigurationData must be specified"

@@ -49,7 +49,7 @@ if ($Hostname) {
     $nodes += $Hostname
 }
 
-$session = New-CimSession -Credential $cred -ComputerName $nodes -Port 5986 -Authentication basic -SessionOption $options
+$session = New-CimSession -Credential $cred -ComputerName $nodes -Port 5986 -Authentication basic -SessionOption $options -OperationTimeoutSec 600
 Start-DscConfiguration -CimSession $session -Path $PSScriptRoot\DockerClient -Verbose -Wait -Force
 
 $session | Remove-CimSession

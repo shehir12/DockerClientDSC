@@ -15,7 +15,6 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 
 
 ## Installation Run Configuration
-> NOTE: An issue may occur when new Docker images are pulled from the Docker Hub while applying a DSC configuration that causes the CIM session to become disconnected. This issue is being investigated. If this occurs, you may have to manually pull the Docker image using `docker pull [IMAGE]` and use the `-Force` switch in future executions of the `Start-DscConfiguration` cmdlet to delete any pending configurations.
 
 Every `DockerClient` DSC configuration asserts that Docker is installed and configured and that the Docker service is running. The steps below provide a walkthrough for using the `DockerClient` DSC configuration to ensure that Docker is installed on a target node:
 
@@ -48,7 +47,7 @@ Every `DockerClient` DSC configuration asserts that Docker is installed and conf
 	```powershell
 	$cred = Get-Credential -UserName "root"
 	$options = New-CimSessionOption -UseSsl -SkipCACheck -SkipCNCheck -SkipRevocationCheck
-	$session = New-CimSession -Credential $cred -ComputerName $hostname -Port 5986 -Authentication basic -SessionOption $options
+	$session = New-CimSession -Credential $cred -ComputerName $hostname -Port 5986 -Authentication basic -SessionOption $options -OperationTimeoutSec 600
 	Start-DscConfiguration -CimSession $session -Path .\DockerClient -Verbose -Wait
 	```
 
