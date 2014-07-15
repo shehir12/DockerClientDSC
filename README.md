@@ -102,6 +102,7 @@ To create or remove containers, you can use the `Container` parameter with one o
 - Name (required)
 - Image (required unless Remove property is set to `$true`)
 - Port
+- Env
 - Link
 - Command
 - Remove
