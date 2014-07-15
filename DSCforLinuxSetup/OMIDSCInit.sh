@@ -3,6 +3,8 @@
 # Courtesy of PowerShell Magazine writer Ravikanth C
 # http://www.powershellmagazine.com/2014/05/21/installing-and-configuring-dsc-for-linux/
 
+apt-get -y install build-essential pkg-config python python-dev libpam-dev libssl-dev
+
 mkdir /root/downloads
 cd /root/downloads
  
