@@ -242,7 +242,7 @@ nxScript $containerName
 
             if ($requiredImage -notcontains $containerImage) {
                 if ($Image -notcontains $containerImage) {
-                    $imageBlocks += getImageBlock -dockerImage $containerImage
+                    $script:imageBlocks += getImageBlock -dockerImage $containerImage
                 }
 
                 $requiredImage += $containerImage
@@ -265,23 +265,23 @@ nxScript $containerName
         return $containerBlock
     }
 
+    [string[]]$script:imageBlocks = @()
+    [string[]]$containerBlocks = @()
+
     # Dynamically create nxScript resource blocks for Docker images
     if ($Image) {
-        [string[]]$imageBlocks = @()
         foreach ($dockerImage in $Image) {
             if ($dockerImage.GetType().Name -eq "Hashtable") {
                 $imageName = $dockerImage['Name']
                 $isRemovable = $dockerImage['Remove']                       
-                $imageBlocks += getImageBlock -dockerImage $imageName -isRemovable $isRemovable
+                $script:imageBlocks += getImageBlock -dockerImage $imageName -isRemovable $isRemovable
             } elseif ($dockerImage.GetType().Name -eq "String") {
-                $imageBlocks += getImageBlock -dockerImage $dockerImage
+                $script:imageBlocks += getImageBlock -dockerImage $dockerImage
             }
         }
     }
 
     if ($Container) {
-        [string[]]$containerBlocks = @()
-
         $requiredImage = @()
         foreach ($dockerContainer in $Container) {
             $containerName = $dockerContainer['Name']
@@ -318,7 +318,7 @@ nxService DockerService
 
 '@                
 
-        $imageBlocks | % { $dockerConfig += $_ }
+        $script:imageBlocks | % { $dockerConfig += $_ }
         $containerBlocks | % { $dockerConfig += $_ }
         $dockerConfig = [scriptblock]::Create($dockerConfig)
     } elseif ($PSBoundParameters['Image']) {
@@ -343,7 +343,7 @@ nxService DockerService
 
 '@   
 
-        $imageBlocks | % { $dockerConfig += $_ }
+        $script:imageBlocks | % { $dockerConfig += $_ }
         $dockerConfig = [scriptblock]::Create($dockerConfig)
     } else {
 
