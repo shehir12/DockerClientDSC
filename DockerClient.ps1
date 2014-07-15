@@ -291,7 +291,7 @@ nxScript $containerName
             $containerCommand = $dockerContainer['Command']
             $isRemovable = $dockerContainer['Remove']
 
-            $containerBlocks += getContainerBlock -containerName $containerName -containerImage $containerImage -containerPort $containerPort -containerEnv $containerEnv -containerLink -$containerLink -isRemovable $isRemovable
+            $containerBlocks += getContainerBlock -containerName $containerName -containerImage $containerImage -containerPort $containerPort -containerEnv $containerEnv -containerLink $containerLink -isRemovable $isRemovable
         }
     }
        
