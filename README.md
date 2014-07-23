@@ -12,9 +12,17 @@ While both CentOS and Oracle Linux have also been tested with PowerShell DSC for
 
 Prior to executing any of the DSC configuration scripts included in this repository, ensure that your targeted node(s) has the required OMI and DSC for Linux components installed. The *DSCforLinuxSetup* folder contains an installation script, `OMIDSCInit.sh`, and an init script, `omiserverinit`, that can be used to assist with this process. The code in the setup files has been provided courtesy of PowerShell Magazine writer Ravikanth C (http://www.powershellmagazine.com/2014/05/21/installing-and-configuring-dsc-for-linux/) and Microsoft Senior Program Manager Kristopher Bash (http://blogs.technet.com/b/privatecloud/archive/2014/05/19/powershell-dsc-for-linux-step-by-step.aspx) respectively.
 
+## Running Tests
 
+The `DockerClient` DSC configuration includes a set of unit tests developed against the [Pester](https://github.com/pester/Pester) framework. Clone the [Pester](https://github.com/pester/Pester) repository to your machine, and copy the files into your system's PowerShell modules directory: `%systemroot%\System32\WindowsPowerShell\v1.0\Modules\Pester`.
 
-## Installation Run Configuration
+Import the `Pester` module into your session, and run the tests by navigating to the root of the `DockerClientDSC` directory and executing the following cmdlet:
+
+```powershell
+Invoke-Pester
+```
+
+## Install Docker
 
 Every `DockerClient` DSC configuration asserts that Docker is installed and configured and that the Docker service is running. The steps below provide a walkthrough for using the `DockerClient` DSC configuration to ensure that Docker is installed on a target node:
 
