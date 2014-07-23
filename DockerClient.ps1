@@ -299,22 +299,11 @@ Configuration DockerClient
         }
     }
 
-    if ($PSBoundParameters['Container']) {
-        $dockerConfig = getInstallationBlock
-        $dockerConfig += getServiceBlock        
-        $imageBlocks | % { $dockerConfig += $_ }
-        $containerBlocks | % { $dockerConfig += $_ }
-        $dockerConfig = [scriptblock]::Create($dockerConfig)
-    } elseif ($PSBoundParameters['Image']) {
-        $dockerConfig = getInstallationBlock
-        $dockerConfig += getServiceBlock
-        $imageBlocks | % { $dockerConfig += $_ }
-        $dockerConfig = [scriptblock]::Create($dockerConfig)
-    } else {
-        $dockerConfig = getInstallationBlock
-        $dockerConfig += getServiceBlock
-        $dockerConfig = [scriptblock]::Create($dockerConfig)
-    }
+    $dockerConfig = getInstallationBlock
+    $dockerConfig += getServiceBlock
+    $imageBlocks | % { $dockerConfig += $_ }
+    $containerBlocks | % { $dockerConfig += $_ }
+    $dockerConfig = [scriptblock]::Create($dockerConfig)
 
     Node $AllNodes.Where{$_.Role -eq "Docker Host"}.Nodename {
         if ($AllNodes.Where{$_.Role -eq "Docker Host"}.Nodename -eq "$Hostname") {
