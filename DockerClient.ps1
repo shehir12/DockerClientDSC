@@ -115,7 +115,7 @@ function getContainerBlock {
         
         if ($containerLink) {
             $existing = (Get-Variable -Name "set$containerName").Value
-            $existing += ' --link ' + $containerLink + ':' + $containerLink
+            $existing += ' --link ' + $containerLink
             Set-Variable -Scope Script -Name "set$containerName" -Value $existing
         }
       
@@ -173,7 +173,14 @@ Configuration DockerClient
 
       - Name -> Name of image to remove
       - Remove -> Use $true to set image for removal
+   
+   This parameter also accepts an array of strings and hashtables to stage images for both add and removal
+   as follows:
 
+   DockerClient -Hostname $hostname -Image @("node:latest", @{Name="node:0.10";Remove=$true})
+
+   The example above will pull the latest "node" image but remove the "node" image of version 0.10
+   if it resides on the Docker host.
 .PARAMETER Container
    Docker container(s) to run. This parameter requires one or more hashtables with the
    desired options for the container. Valid properties for the hashtable are:
@@ -181,6 +188,7 @@ Configuration DockerClient
       - Name -> Name to assign container
       - Image -> Image container will use
       - Port -> Port mapping
+      - Env -> Environment variables to inject in to the container
       - Link -> Name of container to link to
       - Command -> Command to execute in container
       - Remove -> Boolean to indicate whether or not container should be removed
@@ -188,7 +196,10 @@ Configuration DockerClient
    When using this paramter, your hashtable must define at least the Name and Image properties, unless
    the Remove property is chosen in which case on the Name property needs to be defined. Use of this
    parameter does not require the use of the Image parameter unless you wish to configure a combination
-   of containers and images.
+   of containers and images.  The syntax for the properties listed above matches that of the corresponding
+   options provided to the Docker command line client.
+
+   All containers are run in daemon mode with the '-d' flag.
 .EXAMPLE
    . .\DockerClient.ps1
    DockerClient -Hostname mgmt01.contoso.com
@@ -202,7 +213,7 @@ Configuration DockerClient
    "node" image will also pulled from the Docker Hub repository.
 .EXAMPLE
    . .\DockerClient.ps1
-   DockerClient -Hostname mgmt01.contoso.com -Image node -Container @{Name="Hello World";Port=8080;Command='echo "Hello world"'}
+   DockerClient -Hostname mgmt01.contoso.com -Image node -Container @{Name="Hello World";Port="8080:8080";Command='echo "Hello world"'}
 
    Generates a .mof for configuring Docker components on mgmt01.contoso.com. The
    "node" image will be pulled from the Docker Hub repository if it doesn't already exist.
@@ -220,8 +231,10 @@ Configuration DockerClient
     (
         [Parameter(Position=1)]
         [string]$Hostname,
+
         [Parameter(Position=2)]
-        $Image,
+        [Object[]]$Image,
+
         [Parameter(Position=3)]
         [hashtable[]]$Container
     )
@@ -247,7 +260,7 @@ Configuration DockerClient
         }
     }
 
-
+    # Set output field field separator to Newline
     $OFS = [Environment]::Newline
     
     $installationScripts = Get-ChildItem -Recurse -File -Path "scripts\installation" | % { $_.FullName }
@@ -280,6 +293,7 @@ Configuration DockerClient
         }
     }
 
+    # Dynamically create nxScript resource blocks for Docker containers
     if ($Container) {
         foreach ($dockerContainer in $Container) {
             $containerName = $dockerContainer['Name']
@@ -299,6 +313,7 @@ Configuration DockerClient
         }
     }
 
+    # Combine all resource blocks
     $dockerConfig = getInstallationBlock
     $dockerConfig += getServiceBlock
     $imageBlocks | % { $dockerConfig += $_ }
