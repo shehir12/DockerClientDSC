@@ -11,7 +11,7 @@ Describe "DockerClient" {
         It "should throw a specific exception message" {
             { DockerClient } | Should Throw "Hostname and/or ConfigurationData must be specified"
         }
-	}
+    }
 }
 
 Describe "getInstallationBlock" {
