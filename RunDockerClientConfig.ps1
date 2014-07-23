@@ -14,6 +14,9 @@
    established to all nodes defined in the AllNodes array. This parameter
    may be used in conjunction with the Hostname parameter provided that there
    are no duplicate node names.
+.PARAMETER Credential
+   The credential used to connect to the target Linux node. If this parameter isn't used,
+   you will be prompted to supply a credential.
 .EXAMPLE
    .\RunDockerClientConfig.ps1 -Hostname "mgmt01.contoso.com"
 
@@ -29,16 +32,21 @@
    running this script.
 
    Author: Andrew Weiss | Microsoft
+           andrew.weiss@microsoft.com
 #>
 
 param
 (
     [string]$Hostname,
-    [string]$ConfigurationData
+    [string]$ConfigurationData,
+    [System.Management.Automation.PSCredential]$Credential
 
 )
 
-$cred = Get-Credential -UserName "root" -Message "Enter password"
+if (!$Credential) {
+    $cred = Get-Credential -UserName "root" -Message "Enter password"
+}
+
 $options = New-CimSessionOption -UseSsl -SkipCACheck -SkipCNCheck -SkipRevocationCheck
 if ($ConfigurationData) {
     $data = Invoke-Expression -Command "$(Get-Content -Path $ConfigurationData)"
