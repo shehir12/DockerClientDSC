@@ -239,14 +239,6 @@ nxScript $containerName
 
             $imageVarName = $containerImage.Replace('-', "").Replace(':', "").Replace('/', "")
 
-            if ($requiredImage -notcontains $containerImage) {
-                if ($Image -notcontains $containerImage) {
-                    $script:imageBlocks += getImageBlock -dockerImage $containerImage
-                }
-
-                $requiredImage += $containerImage
-            }
-
 $containerBlock = @"
 nxScript $containerName
 {
@@ -264,24 +256,26 @@ nxScript $containerName
         return $containerBlock
     }
 
-    [string[]]$script:imageBlocks = @()
+    [string[]]$imageBlocks = @()
     [string[]]$containerBlocks = @()
 
     # Dynamically create nxScript resource blocks for Docker images
+    $requiredImage = @()
     if ($Image) {
         foreach ($dockerImage in $Image) {
             if ($dockerImage.GetType().Name -eq "Hashtable") {
                 $imageName = $dockerImage['Name']
                 $isRemovable = $dockerImage['Remove']                       
-                $script:imageBlocks += getImageBlock -dockerImage $imageName -isRemovable $isRemovable
+                $imageBlocks += getImageBlock -dockerImage $imageName -isRemovable $isRemovable
+                $requiredImage += $imageName
             } elseif ($dockerImage.GetType().Name -eq "String") {
-                $script:imageBlocks += getImageBlock -dockerImage $dockerImage
+                $imageBlocks += getImageBlock -dockerImage $dockerImage
+                $requiredImage += $dockerImage
             }
         }
     }
 
     if ($Container) {
-        $requiredImage = @()
         foreach ($dockerContainer in $Container) {
             $containerName = $dockerContainer['Name']
             $containerImage = $dockerContainer['Image']
@@ -290,6 +284,11 @@ nxScript $containerName
             $containerLink = $dockerContainer['Link']
             $containerCommand = $dockerContainer['Command']
             $isRemovable = $dockerContainer['Remove']
+
+            if ($requiredImage -notcontains $containerImage) {
+                $imageBlocks += getImageBlock -dockerImage $containerImage
+                $requiredImage += $containerImage
+            }
 
             $containerBlocks += getContainerBlock -containerName $containerName -containerImage $containerImage -containerPort $containerPort -containerEnv $containerEnv -containerLink $containerLink -isRemovable $isRemovable
         }
@@ -307,7 +306,7 @@ nxScript DockerInstallation
 
 nxService DockerService
 {
-    Name = "docker.io"
+    Name = "docker"
     Controller = "init"
     Enabled = $true
     State = "Running"
@@ -317,7 +316,7 @@ nxService DockerService
 
 '@                
 
-        $script:imageBlocks | % { $dockerConfig += $_ }
+        $imageBlocks | % { $dockerConfig += $_ }
         $containerBlocks | % { $dockerConfig += $_ }
         $dockerConfig = [scriptblock]::Create($dockerConfig)
     } elseif ($PSBoundParameters['Image']) {
@@ -332,7 +331,7 @@ nxScript DockerInstallation
 
 nxService DockerService
 {
-    Name = "docker.io"
+    Name = "docker"
     Controller = "init"
     Enabled = $true
     State = "Running"
@@ -342,7 +341,7 @@ nxService DockerService
 
 '@   
 
-        $script:imageBlocks | % { $dockerConfig += $_ }
+        $imageBlocks | % { $dockerConfig += $_ }
         $dockerConfig = [scriptblock]::Create($dockerConfig)
     } else {
 
@@ -356,7 +355,7 @@ nxScript DockerInstallation
 
 nxService DockerService
 {
-    Name = "docker.io"
+    Name = "docker"
     Controller = "init"
     Enabled = $true
     State = "Running"
