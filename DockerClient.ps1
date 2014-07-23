@@ -4,6 +4,155 @@ if (Test-Path "$PSScriptRoot\DockerClient") {
     Remove-Item -Recurse "$PSScriptRoot\DockerClient"
 }
 
+function getInstallationBlock {
+
+$installationBlock = @'
+nxScript DockerInstallation
+{
+    GetScript = "$getDockerClient"
+    SetScript = "$setDockerClient"
+    TestScript = "$testDockerClient"
+}
+
+
+'@
+
+    return $installationBlock
+}
+
+function getServiceBlock {
+
+$serviceBlock = @'
+nxService DockerService
+{
+    Name = "docker"
+    Controller = "init"
+    Enabled = $true
+    State = "Running"
+    DependsOn = "[nxScript]DockerInstallation"
+}
+
+
+'@
+
+    return $serviceBlock
+}
+
+function getImageBlock {
+    param (
+        $dockerImage,
+        $isRemovable
+    )
+        
+    $imageVarName = $dockerImage.Replace('-', "").Replace(':', "").Replace('/', "")
+
+    if ($isRemovable -and $dockerImage.Contains(':')) {
+        Set-Variable -Scope Script  -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 1 || exit 0')
+        Set-Variable -Scope Script -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 1 || exit 0')
+    } elseif ($isRemovable) {
+        Set-Variable -Scope Script -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 1 || exit 0')
+        Set-Variable -Scope Script -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 1 || exit 0')
+        Set-Variable -Scope Script -Name "set$imageVarName" -Value ($bashString + 'docker rmi -f ' + $dockerImage)
+    } elseif ($dockerImage.Contains(':')) {
+        Set-Variable -Scope Script  -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
+        Set-Variable -Scope Script -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
+        Set-Variable -Scope Script -Name "set$imageVarName" -Value ($bashString + 'docker pull ' + $dockerImage + '; exit 0')
+    } else {
+        Set-Variable -Scope Script -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 0 || exit 1')
+        Set-Variable -Scope Script -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 0 || exit 1')
+        Set-Variable -Scope Script -Name "set$imageVarName" -Value ($bashString + 'docker pull ' + $dockerImage + '; exit 0')
+    }
+
+$imageBlock = @"
+nxScript $imageVarName
+{
+    GetScript = `$get$imageVarName
+    SetScript = `$set$imageVarName
+    TestScript = `$test$imageVarName
+    DependsOn = "[nxService]DockerService"
+}
+
+
+"@
+
+    return $imageBlock
+}
+
+function getContainerBlock {
+    param
+    (
+        $containerName,
+        $containerImage,
+        $containerPort,
+        $containerEnv,
+        $containerLink,
+        $containerCommand,
+        $isRemovable
+    )
+
+    if ($isRemovable) {
+        Set-Variable -Scope Script -Name "get$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 1 || exit 0')
+        Set-Variable -Scope Script -Name "test$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 1 || exit 0')
+        Set-Variable -Scope Script -Name "set$containerName" -Value ($bashString + 'docker rm -v -f ' + $containerName)
+    } else {
+        Set-Variable -Scope Script -Name "get$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 0 || exit 1')
+        Set-Variable -Scope Script -Name "test$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 0 || exit 1')
+        Set-Variable -Scope Script -Name "set$containerName" -Value ($bashString + '[[ $(docker run -d --name="' + $containerName + '"')
+
+        if ($containerPort) {
+            $existing = (Get-Variable -Name "set$containerName").Value
+            $existing += ' -p ' + $containerPort
+            Set-Variable -Scope Script -Name "set$containerName" -Value $existing
+        }
+
+        if ($containerEnv) {
+            foreach ($env in $containerEnv) {
+                $existing = (Get-Variable -Name "set$containerName").Value
+                $existing += " -e `"$env`""
+                Set-Variable -Scope Script -Name "set$containerName" -Value $existing
+            }
+        }
+        
+        if ($containerLink) {
+            $existing = (Get-Variable -Name "set$containerName").Value
+            $existing += ' --link ' + $containerLink + ':' + $containerLink
+            Set-Variable -Scope Script -Name "set$containerName" -Value $existing
+        }
+      
+        $existing = (Get-Variable -Name "set$containerName").Value
+        $existing += ' ' + $containerImage
+        Set-Variable -Scope Script -Name "set$containerName" -Value $existing
+
+        if ($containerCommand) {
+            $existing = (Get-Variable -Name "set$container").Value
+            $existing += ' ' + $containerCommand
+            Set-Variable -Scope Script -Name "set$containerName" -Value $existing
+        }
+
+        $existing = (Get-Variable -Name "set$containerName").Value
+        $existing += ' ) ]] && exit 0 || exit 1'
+        Set-Variable -Scope Script -Name "set$containerName" -Value $existing
+
+        $imageVarName = $containerImage.Replace('-', "").Replace(':', "").Replace('/', "")
+
+    }
+
+$containerBlock = @"
+nxScript $containerName
+{
+    GetScript = `$get$containerName
+    SetScript = `$set$containerName
+    TestScript = `$test$containerName
+    DependsOn = `"[nxScript]$imageVarName`"
+}
+
+
+"@
+
+    return $containerBlock
+}
+
+
 Configuration DockerClient
 {
 
@@ -110,151 +259,7 @@ Configuration DockerClient
     $bashString = "#!/bin/bash`r`n"
 
     Import-DscResource -Module nx
-    
-    function getImageBlock {
-        param (
-            $dockerImage,
-            $isRemovable
-        )
-        
-        $imageVarName = $dockerImage.Replace('-', "").Replace(':', "").Replace('/', "")
-
-        if ($isRemovable) {
-            if ($dockerImage.Contains(':')) {
-                Set-Variable -Scope Script  -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 1 || exit 0')
-                Set-Variable -Scope Script -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 1 || exit 0')
-            } else {
-                Set-Variable -Scope Script -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 1 || exit 0')
-                Set-Variable -Scope Script -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 1 || exit 0')
-            }
-
-            Set-Variable -Scope Script -Name "set$imageVarName" -Value ($bashString + 'docker rmi -f ' + $dockerImage)
-
-$imageBlock = @"
-nxScript $imageVarName
-{
-    GetScript = `$get$imageVarName
-    SetScript = `$set$imageVarName
-    TestScript = `$test$imageVarName
-    DependsOn = "[nxService]DockerService"
-}
-
-
-"@
-
-        } else {
-            if ($dockerImage.Contains(':')) {
-                Set-Variable -Scope Script  -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
-                Set-Variable -Scope Script -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 0 || exit 1')
-            } else {
-                Set-Variable -Scope Script -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 0 || exit 1')
-                Set-Variable -Scope Script -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 0 || exit 1')
-            }
-            Set-Variable -Scope Script -Name "set$imageVarName" -Value ($bashString + 'docker pull ' + $dockerImage + '; exit 0')
-
-$imageBlock = @"
-nxScript $imageVarName
-{
-    GetScript = `$get$imageVarName
-    SetScript = `$set$imageVarName
-    TestScript = `$test$imageVarName
-    DependsOn = @("[nxService]DockerService", "[nxScript]DockerInstallation")
-}
-
-
-"@
-
-        }
-
-        return $imageBlock
-    }
-
-    function getContainerBlock {
-        param
-        (
-            $containerName,
-            $containerImage,
-            $containerPort,
-            $containerEnv,
-            $containerLink,
-            $containerCommand,
-            $isRemovable
-        )
-
-        if ($isRemovable) {
-            Set-Variable -Scope Script -Name "get$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 1 || exit 0')
-            Set-Variable -Scope Script -Name "test$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 1 || exit 0')
-            Set-Variable -Scope Script -Name "set$containerName" -Value ($bashString + 'docker rm -v -f ' + $containerName)
-
-$containerBlock = @"
-nxScript $containerName
-{
-    GetScript = `$get$containerName
-    SetScript = `$set$containerName
-    TestScript = `$test$containerName
-    DependsOn = "[nxService]DockerService"
-}
-
-
-"@
-
-        } else {
-            Set-Variable -Scope Script -Name "get$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 0 || exit 1')
-            Set-Variable -Scope Script -Name "test$containerName" -Value ($bashString + '[[ $(docker ps -a | grep -c "' + $containerName + '") -ge 1 ]] && exit 0 || exit 1')
-
-            Set-Variable -Scope Script -Name "set$containerName" -Value ($bashString + '[[ $(docker run -d --name="' + $containerName + '"')
-            if ($containerPort) {
-                $existing = (Get-Variable -Name "set$containerName").Value
-                $existing += ' -p ' + $containerPort
-                Set-Variable -Scope Script -Name "set$containerName" -Value $existing
-            }
-
-            if ($containerEnv) {
-                foreach ($env in $containerEnv) {
-                    $existing = (Get-Variable -Name "set$containerName").Value
-                    $existing += " -e `"$env`""
-                    Set-Variable -Scope Script -Name "set$containerName" -Value $existing
-                }
-            }
-        
-            if ($containerLink) {
-                $existing = (Get-Variable -Name "set$containerName").Value
-                $existing += ' --link ' + $containerLink + ':' + $containerLink
-                Set-Variable -Scope Script -Name "set$containerName" -Value $existing
-            }
-      
-            $existing = (Get-Variable -Name "set$containerName").Value
-            $existing += ' ' + $containerImage
-            Set-Variable -Scope Script -Name "set$containerName" -Value $existing
-
-            if ($containerCommand) {
-                $existing = (Get-Variable -Name "set$container").Value
-                $existing += ' ' + $containerCommand
-                Set-Variable -Scope Script -Name "set$containerName" -Value $existing
-            }
-
-            $existing = (Get-Variable -Name "set$containerName").Value
-            $existing += ' ) ]] && exit 0 || exit 1'
-            Set-Variable -Scope Script -Name "set$containerName" -Value $existing
-
-            $imageVarName = $containerImage.Replace('-', "").Replace(':', "").Replace('/', "")
-
-$containerBlock = @"
-nxScript $containerName
-{
-    GetScript = `$get$containerName
-    SetScript = `$set$containerName
-    TestScript = `$test$containerName
-    DependsOn = `"[nxScript]$imageVarName`"
-}
-
-
-"@
-
-        }
-
-        return $containerBlock
-    }
+       
 
     [string[]]$imageBlocks = @()
     [string[]]$containerBlocks = @()
@@ -293,81 +298,25 @@ nxScript $containerName
             $containerBlocks += getContainerBlock -containerName $containerName -containerImage $containerImage -containerPort $containerPort -containerEnv $containerEnv -containerLink $containerLink -isRemovable $isRemovable
         }
     }
-       
+
     if ($PSBoundParameters['Container']) {
-        
-$dockerConfig = @'
-nxScript DockerInstallation
-{
-    GetScript = "$getDockerClient"
-    SetScript = "$setDockerClient"
-    TestScript = "$testDockerClient"
-}
-
-nxService DockerService
-{
-    Name = "docker"
-    Controller = "init"
-    Enabled = $true
-    State = "Running"
-    DependsOn = "[nxScript]DockerInstallation"
-}
-
-
-'@                
-
+        $dockerConfig = getInstallationBlock
+        $dockerConfig += getServiceBlock        
         $imageBlocks | % { $dockerConfig += $_ }
         $containerBlocks | % { $dockerConfig += $_ }
         $dockerConfig = [scriptblock]::Create($dockerConfig)
     } elseif ($PSBoundParameters['Image']) {
-
-$dockerConfig = @'
-nxScript DockerInstallation
-{
-    GetScript = "$getDockerClient"
-    SetScript = "$setDockerClient"
-    TestScript = "$testDockerClient"
-}
-
-nxService DockerService
-{
-    Name = "docker"
-    Controller = "init"
-    Enabled = $true
-    State = "Running"
-    DependsOn = "[nxScript]DockerInstallation"
-}
-
-
-'@   
-
+        $dockerConfig = getInstallationBlock
+        $dockerConfig += getServiceBlock
         $imageBlocks | % { $dockerConfig += $_ }
         $dockerConfig = [scriptblock]::Create($dockerConfig)
     } else {
-
-$dockerConfig = @'
-nxScript DockerInstallation
-{
-    GetScript = "$getDockerClient"
-    SetScript = "$setDockerClient"
-    TestScript = "$testDockerClient"
-}
-
-nxService DockerService
-{
-    Name = "docker"
-    Controller = "init"
-    Enabled = $true
-    State = "Running"
-    DependsOn = "[nxScript]DockerInstallation"
-}
-'@
-
+        $dockerConfig = getInstallationBlock
+        $dockerConfig += getServiceBlock
         $dockerConfig = [scriptblock]::Create($dockerConfig)
     }
 
-    Node $AllNodes.Where{$_.Role -eq "Docker Host"}.Nodename
-    {
+    Node $AllNodes.Where{$_.Role -eq "Docker Host"}.Nodename {
         if ($AllNodes.Where{$_.Role -eq "Docker Host"}.Nodename -eq "$Hostname") {
             throw "Duplicate node detected in configuration data and Hostname parameter"
         }
@@ -375,8 +324,7 @@ nxService DockerService
         $dockerConfig.Invoke()
     }
 
-    Node $Hostname
-    {
+    Node $Hostname {
         $dockerConfig.Invoke()
     }
 }
