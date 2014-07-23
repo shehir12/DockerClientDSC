@@ -3,7 +3,7 @@
 
 Describe "DockerClient" {
     Context "when Hostname and Configuration parameters are null" { 
-		It "should throw an exception" {
+        It "should throw an exception" {
             { DockerClient } | Should Throw
         }
 
