@@ -14,11 +14,12 @@ Prior to executing any of the DSC configuration scripts included in this reposit
 
 ## Running Tests
 
-The `DockerClient` DSC configuration includes a set of unit tests developed against the [Pester](https://github.com/pester/Pester) framework. Clone the [Pester](https://github.com/pester/Pester) repository to your machine, and copy the files into your system's PowerShell modules directory: `%systemroot%\System32\WindowsPowerShell\v1.0\Modules\Pester`.
+The `DockerClient` DSC configuration includes a set of unit tests developed against the [Pester](https://github.com/pester/Pester) framework. Clone the [Pester](https://github.com/pester/Pester) repository to your machine, checkout the *beta* branch and copy the files into your system's PowerShell modules directory: `%systemroot%\System32\WindowsPowerShell\v1.0\Modules\Pester`.
 
-Import the `Pester` module into your session, and run the tests by navigating to the root of the `DockerClientDSC` directory and executing the following cmdlet:
+Import the `Pester` module into your session, and run the tests and code coverage analysis by navigating to the root of the `DockerClientDSC` directory and executing the following cmdlet:
 
 ```powershell
+$codeCov = @{p="DockerClient.ps1"}
 Invoke-Pester
 ```
 

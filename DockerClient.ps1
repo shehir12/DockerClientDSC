@@ -47,8 +47,9 @@ function getImageBlock {
     $imageVarName = $dockerImage.Replace('-', "").Replace(':', "").Replace('/', "")
 
     if ($isRemovable -and $dockerImage.Contains(':')) {
-        Set-Variable -Scope Script  -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 1 || exit 0')
+        Set-Variable -Scope Script -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 1 || exit 0')
         Set-Variable -Scope Script -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep "' + $dockerImage.Split(':')[0] + '" | awk ''{ print $2 }'') == "' + $dockerImage.Split(':')[1] + '" ]] && exit 1 || exit 0')
+        Set-Variable -Scope Script -Name "set$imageVarName" -Value ($bashString + 'docker rmi -f ' + $dockerImage)
     } elseif ($isRemovable) {
         Set-Variable -Scope Script -Name "get$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 1 || exit 0')
         Set-Variable -Scope Script -Name "test$imageVarName" -Value ($bashString + '[[ $(docker images | grep -c "' + $dockerImage + '") -gt 0 ]] && exit 1 || exit 0')
