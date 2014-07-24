@@ -2,14 +2,21 @@
 . "$parent\DockerClient.ps1"
 
 Describe "DockerClient" {
-    Context "when Hostname and Configuration parameters are null" { 
-        It "should throw an exception" {
-            { DockerClient } | Should Throw
+    Context "when Hostname and Configuration parameters are null" {
+        $dockerClientScriptBlock = {
+            $originalPreference = $global:ErrorActionPreference
+            $global:ErrorActionPreference = "Stop"
+
+            try { DockerClient } finally { $global:ErrorActionPreference = $originalPreference }
         }
 
-        # This test will fail. Bug in Pester beta that is being resolved
+        It "should throw an exception" {
+            $dockerClientScriptBlock | Should Throw
+        }
+
         It "should throw a specific exception message" {
-            { DockerClient } | Should Throw "Hostname and/or ConfigurationData must be specified"
+            $errorMessage = "Hostname and/or ConfigurationData must be specified"
+            $dockerClientScriptBlock | Should Throw $errorMessage
         }
     }
 }
