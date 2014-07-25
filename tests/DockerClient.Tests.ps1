@@ -2,21 +2,24 @@
 . "$parent\DockerClient.ps1"
 
 Describe "DockerClient" {
-    Context "when Hostname and Configuration parameters are null" {
-        $dockerClientScriptBlock = {
-            $originalPreference = $global:ErrorActionPreference
-            $global:ErrorActionPreference = "Stop"
+    BeforeEach {
+        $originalPreference = $global:ErrorActionPreference
+        $global:ErrorActionPreference = "Stop"
+    }
 
-            try { DockerClient } finally { $global:ErrorActionPreference = $originalPreference }
-        }
+    AfterEach {
+        $global:ErrorActionPreference = $originalPreference
+    }
+
+    Context "when Hostname and Configuration parameters are null" {
 
         It "should throw an exception" {
-            $dockerClientScriptBlock | Should Throw
+            { DockerClient } | Should Throw
         }
 
         It "should throw a specific exception message" {
             $errorMessage = "Hostname and/or ConfigurationData must be specified"
-            $dockerClientScriptBlock | Should Throw $errorMessage
+            { DockerClient } | Should Throw $errorMessage
         }
     }
 }
