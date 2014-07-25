@@ -19,7 +19,7 @@ The `DockerClient` DSC configuration includes a set of unit tests developed agai
 Import the `Pester` module into your session, and run the tests and code coverage analysis by navigating to the root of the `DockerClientDSC` directory and executing the following cmdlet:
 
 ```powershell
-Invoke-Pester
+Invoke-Pester -CodeCoverage @{p="DockerClient.ps1"}
 ```
 
 ## Install Docker
